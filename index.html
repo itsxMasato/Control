@@ -107,6 +107,7 @@
         </div>
       </div>
       <div class="topbar-btns">
+        <button class="btn btn-navy" onclick="openInventario()">Registrar monitoreo</button>
         <button class="btn btn-ghost" onclick="logout()">Salir</button>
       </div>
     </div>
@@ -168,7 +169,7 @@
       <div class="card-body" style="overflow-x:auto">
         <table class="rows-table">
           <thead>
-            <tr><th>#</th><th>Hora</th><th>Entregó</th><th>Recibió</th><th>Destino/Proveedor</th>
+            <tr><th>#</th><th>Hora</th><th>Producto</th><th>Enviado por</th><th>Recibió</th><th>Destino/Proveedor</th>
                 <th>Entrada</th><th>Salida</th><th>Cantidad</th><th>Responsable</th></tr>
           </thead>
           <tbody id="detail-rows"></tbody>
@@ -220,7 +221,7 @@
         </div>
         <div class="field">
           <label>Área</label>
-          <input type="text" id="f-area" placeholder="Ej. Almacén Central"/>
+          <input type="text" id="f-area" value="Oficina principal" readonly style="background:#f6f8fb"/>
         </div>
         <div class="field">
           <label>Turno</label>
@@ -232,7 +233,7 @@
         </div>
         <div class="field">
           <label>Folio</label>
-          <input type="text" id="f-folio" placeholder="Ej. 0042"/>
+          <input type="text" id="f-folio" placeholder="GCM-000" readonly style="background:#f6f8fb"/>
         </div>
       </div>
     </div>
@@ -248,7 +249,8 @@
     <div class="col-labels">
       <div class="col-label">&nbsp;</div>
       <div class="col-label">Hora</div>
-      <div class="col-label">Entregó</div>
+      <div class="col-label">Producto</div>
+      <div class="col-label">Enviado por</div>
       <div class="col-label">Recibió</div>
       <div class="col-label">Destino / Proveedor</div>
       <div class="col-label r">Entrada</div>
@@ -333,7 +335,8 @@
         <tr>
           <th style="width:.55cm">N°</th>
           <th style="width:1.5cm">Hora</th>
-          <th style="width:2.6cm">Entregó</th>
+          <th style="width:2.2cm">Producto</th>
+          <th style="width:2.2cm">Enviado por</th>
           <th style="width:2.6cm">Recibió</th>
           <th>Descripción del Producto</th>
           <th style="width:1.5cm">Entrada</th>
@@ -426,6 +429,7 @@ let currentUser = null;          // { uid, nombre, rol }
 let currentSubmissionId = null;  // envío que el ejecutivo está viendo
 let execUnsub = null;            // función para desuscribirse del listener en vivo
 let formInitialized = false;     // si ya se inicializó el formulario de inventario
+let currentFormMode = 'equipo';
 
 function setVisibleViews(visibleIds){
   const allIds = ['view-login','view-landing','view-exec','view-exec-detail','view-form','view-print'];
@@ -553,18 +557,20 @@ async function logout(){
 
 /* ================= Navegación equipo ================= */
 function backToLanding(){
-  if(!requireAuth(['equipo'])) return;
-  setVisibleViews(['view-landing']);
+  if(!requireAuth(['equipo','ejecutivo'])) return;
+  setVisibleViews(currentUser?.rol === 'ejecutivo' ? ['view-exec'] : ['view-landing']);
 }
 
-function openInventario(){
-  if(!requireAuth(['equipo'])) return;
+async function openInventario(){
+  if(!requireAuth(['equipo','ejecutivo'])) return;
+  currentFormMode = currentUser?.rol === 'ejecutivo' ? 'monitoreo' : 'equipo';
   setVisibleViews(['view-form']);
   if(!formInitialized){
     document.getElementById('f-fecha').value = today();
     for(let i=0;i<8;i++) addRow();
     formInitialized = true;
   }
+  await ensureInventarioMeta();
 }
 
 /* ================= Toast ================= */
@@ -583,28 +589,62 @@ function showToast(msg, type='info'){
 }
 
 /* ================= Envío del formulario a Firestore ================= */
+async function generateNextFolio(){
+  if(!fbReady || !db) return 'GCM-001';
+  try{
+    const snap = await db.collection('envios').get();
+    let maxNum = 0;
+    snap.forEach(doc=>{
+      const data = doc.data() || {};
+      const folio = data?.data?.folio || data?.folio || '';
+      const match = String(folio).trim().match(/^GCM-(\d{3})$/i);
+      if(match){
+        const num = parseInt(match[1], 10);
+        if(num > maxNum) maxNum = num;
+      }
+    });
+    return `GCM-${String(maxNum + 1).padStart(3, '0')}`;
+  }catch(err){
+    console.error('No se pudo generar el folio:', err);
+    return 'GCM-001';
+  }
+}
+
+async function ensureInventarioMeta(){
+  const areaEl = document.getElementById('f-area');
+  if(areaEl) areaEl.value = 'Oficina principal';
+
+  const folioEl = document.getElementById('f-folio');
+  if(!folioEl) return;
+  const folioValue = String(folioEl.value || '').trim();
+  if(!folioValue || !/^GCM-\d{3}$/i.test(folioValue)){
+    folioEl.value = await generateNextFolio();
+  }
+}
+
 function collectInventarioData(){
   const rowsData = [];
   rows.forEach(id=>{
     const g = col => document.querySelector(`[data-c="${col}"][data-id="${id}"]`)?.value || '';
     rowsData.push({
-      hora: g('hora'), entrego: g('entrego'), recibio: g('recibio'), destino: g('destino'),
+      hora: g('hora'), entrego: g('entrego'), enviadoPor: g('enviadoPor'), recibio: g('recibio'), destino: g('destino'),
       entrada: parseFloat(g('entrada'))||0, salida: parseFloat(g('salida'))||0, responsable: g('resp')
     });
   });
   return {
     fecha: document.getElementById('f-fecha').value,
-    area: document.getElementById('f-area').value,
+    area: (document.getElementById('f-area').value || 'Oficina principal').trim() || 'Oficina principal',
     turno: turno,
-    folio: document.getElementById('f-folio').value,
+    folio: (document.getElementById('f-folio').value || '').trim() || 'GCM-001',
     obs: document.getElementById('f-obs').value,
     rows: rowsData
   };
 }
 
 async function submitToReview(){
-  if(!requireAuth(['equipo'])) return;
+  if(!requireAuth(['equipo','ejecutivo'])) return;
   if(!fbReady){ showToast('Firebase no está configurado todavía.'); return; }
+  await ensureInventarioMeta();
   const data = collectInventarioData();
   if(data.rows.length===0){ showToast('Agregá al menos una fila antes de enviar.'); return; }
   if(!currentUser){ showToast('Primero iniciá sesión para guardar.'); return; }
@@ -613,6 +653,8 @@ async function submitToReview(){
       formType: 'inventario',
       submittedByUid: currentUser.uid,
       submittedBy: currentUser.nombre,
+      submittedByRole: currentUser?.rol === 'ejecutivo' ? 'monitoreo' : 'equipo',
+      submittedAs: currentUser?.rol === 'ejecutivo' ? 'monitoreo' : 'equipo',
       submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
       status: 'pendiente',
       data,
@@ -672,11 +714,12 @@ function renderExecDashboard(subs){
     row.onclick = ()=> openSubmissionDetail(s.id);
     const fecha = s.data && s.data.fecha ? fmtDate(s.data.fecha) : '';
     const when = s.submittedAt && s.submittedAt.toDate ? fmtWhen(s.submittedAt.toDate()) : '';
+    const sourceLabel = (s.submittedAs || s.submittedByRole) === 'monitoreo' ? 'Monitoreo' : 'Equipo';
     row.innerHTML = `
       <div class="dot ${s.status}"></div>
       <div class="meta">
         <div class="top">${formLabel(s.formType)}${s.data && s.data.folio ? ' · Folio ' + escapeHtml(s.data.folio) : ''}</div>
-        <div class="sub">${escapeHtml(s.submittedBy||'')} · ${fecha} · enviado ${when}</div>
+        <div class="sub">${escapeHtml(s.submittedBy||'')} · ${sourceLabel} · ${fecha} · enviado ${when}</div>
       </div>
       <div class="status ${s.status}">${s.status}</div>
     `;
@@ -689,6 +732,10 @@ function fmtWhen(d){
     return d.toLocaleDateString('es-HN',{day:'2-digit',month:'2-digit'}) + ' ' +
            d.toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit'});
   }catch(e){ return ''; }
+}
+
+function isMonitoringMode(){
+  return currentUser?.rol === 'ejecutivo' || currentFormMode === 'monitoreo';
 }
 function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -711,6 +758,8 @@ async function openSubmissionDetail(id){
     <div class="dfield"><div class="l">Fecha</div><div class="v">${d.fecha?fmtDate(d.fecha):'-'}</div></div>
     <div class="dfield"><div class="l">Área</div><div class="v">${escapeHtml(d.area||'-')}</div></div>
     <div class="dfield"><div class="l">Turno</div><div class="v">${escapeHtml(d.turno||'-')}</div></div>
+    <div class="dfield"><div class="l">Registrado por</div><div class="v">${escapeHtml(rec.submittedBy||'-')}</div></div>
+    <div class="dfield"><div class="l">Tipo</div><div class="v">${(rec.submittedAs || rec.submittedByRole) === 'monitoreo' ? 'Monitoreo' : 'Equipo'}</div></div>
     <div class="dfield"><div class="l">Estado</div><div class="v">${rec.status}</div></div>
   `;
 
@@ -719,7 +768,7 @@ async function openSubmissionDetail(id){
   (d.rows||[]).forEach((r,i)=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${i+1}</td><td>${escapeHtml(r.hora||'')}</td><td>${escapeHtml(r.entrego||'')}</td>
-      <td>${escapeHtml(r.recibio||'')}</td><td>${escapeHtml(r.destino||'')}</td>
+      <td>${escapeHtml(r.enviadoPor||'')}</td><td>${escapeHtml(r.recibio||'')}</td><td>${escapeHtml(r.destino||'')}</td>
       <td>${r.entrada||0}</td><td>${r.salida||0}</td><td>${(r.entrada||0)-(r.salida||0)}</td>
       <td>${escapeHtml(r.responsable||'')}</td>`;
     rowsBody.appendChild(tr);
@@ -780,7 +829,8 @@ function addRow(){
   div.innerHTML=`
     <div class="row-num">${rows.length}</div>
     <input type="time" data-c="hora" data-id="${id}"/>
-    <input type="text"   data-c="entrego" data-id="${id}" placeholder="Nombre"/>
+    <input type="text"   data-c="entrego" data-id="${id}" placeholder="Producto"/>
+    <input type="text"   data-c="enviadoPor" data-id="${id}" placeholder="Quién envió"/>
     <input type="text"   data-c="recibio" data-id="${id}" placeholder="Nombre"/>
     <input type="text"   data-c="destino" data-id="${id}" placeholder="Destino o proveedor"/>
     <input type="number" data-c="entrada" data-id="${id}" min="0" placeholder="0" oninput="recalc(${id})"/>
@@ -835,13 +885,14 @@ function sync(){
   document.getElementById('rc-label').textContent=rows.length+' '+(rows.length===1?'fila':'filas');
 }
 
-function clearAll(){
+async function clearAll(){
   if(!confirm('¿Limpiar todos los datos?')) return;
   [...rows].forEach(id=>delRow(id));
-  ['f-fecha','f-area','f-folio','f-obs'].forEach(fid=>{const el=document.getElementById(fid);if(el)el.value=''});
+  ['f-fecha','f-obs'].forEach(fid=>{const el=document.getElementById(fid);if(el)el.value=''});
   ['t-M','t-T','t-N'].forEach(id=>document.getElementById(id).classList.remove('on'));
   turno='';
   for(let i=0;i<8;i++) addRow();
+  await ensureInventarioMeta();
 }
 
 function goToPrint(){
@@ -868,6 +919,7 @@ function goToPrint(){
       <td class="n">${id?i+1:''}</td>
       <td>${g('hora')}</td>
       <td>${g('entrego')}</td>
+      <td>${g('enviadoPor')}</td>
       <td>${g('recibio')}</td>
       <td>${g('destino')}</td>
       <td class="r">${e||''}</td>
@@ -882,7 +934,7 @@ function goToPrint(){
 }
 
 function backToForm(){
-  if(!requireAuth(['equipo'])) return;
+  if(!requireAuth(['equipo','ejecutivo'])) return;
   setVisibleViews(['view-form']);
 }
 </script>
