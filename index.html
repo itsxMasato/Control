@@ -169,7 +169,7 @@
       <div class="card-body" style="overflow-x:auto">
         <table class="rows-table">
           <thead>
-            <tr><th>#</th><th>Hora</th><th>Producto</th><th>Enviado por</th><th>Recibió</th><th>Destino/Proveedor</th>
+            <tr><th>#</th><th>Hora</th><th>Producto</th><th>Recibió</th><th>Destino/Proveedor</th>
                 <th>Entrada</th><th>Salida</th><th>Cantidad</th><th>Responsable</th></tr>
           </thead>
           <tbody id="detail-rows"></tbody>
@@ -250,7 +250,6 @@
       <div class="col-label">&nbsp;</div>
       <div class="col-label">Hora</div>
       <div class="col-label">Producto</div>
-      <div class="col-label">Enviado por</div>
       <div class="col-label">Recibió</div>
       <div class="col-label">Destino / Proveedor</div>
       <div class="col-label r">Entrada</div>
@@ -336,7 +335,6 @@
           <th style="width:.55cm">N°</th>
           <th style="width:1.5cm">Hora</th>
           <th style="width:2.2cm">Producto</th>
-          <th style="width:2.2cm">Enviado por</th>
           <th style="width:2.6cm">Recibió</th>
           <th>Descripción del Producto</th>
           <th style="width:1.5cm">Entrada</th>
@@ -627,7 +625,7 @@ function collectInventarioData(){
   rows.forEach(id=>{
     const g = col => document.querySelector(`[data-c="${col}"][data-id="${id}"]`)?.value || '';
     rowsData.push({
-      hora: g('hora'), entrego: g('entrego'), enviadoPor: g('enviadoPor'), recibio: g('recibio'), destino: g('destino'),
+      hora: g('hora'), entrego: g('entrego'), recibio: g('recibio'), destino: g('destino'),
       entrada: parseFloat(g('entrada'))||0, salida: parseFloat(g('salida'))||0, responsable: g('resp')
     });
   });
@@ -768,7 +766,7 @@ async function openSubmissionDetail(id){
   (d.rows||[]).forEach((r,i)=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${i+1}</td><td>${escapeHtml(r.hora||'')}</td><td>${escapeHtml(r.entrego||'')}</td>
-      <td>${escapeHtml(r.enviadoPor||'')}</td><td>${escapeHtml(r.recibio||'')}</td><td>${escapeHtml(r.destino||'')}</td>
+      <td>${escapeHtml(r.recibio||'')}</td><td>${escapeHtml(r.destino||'')}</td>
       <td>${r.entrada||0}</td><td>${r.salida||0}</td><td>${(r.entrada||0)-(r.salida||0)}</td>
       <td>${escapeHtml(r.responsable||'')}</td>`;
     rowsBody.appendChild(tr);
@@ -830,7 +828,6 @@ function addRow(){
     <div class="row-num">${rows.length}</div>
     <input type="time" data-c="hora" data-id="${id}"/>
     <input type="text"   data-c="entrego" data-id="${id}" placeholder="Producto"/>
-    <input type="text"   data-c="enviadoPor" data-id="${id}" placeholder="Quién envió"/>
     <input type="text"   data-c="recibio" data-id="${id}" placeholder="Nombre"/>
     <input type="text"   data-c="destino" data-id="${id}" placeholder="Destino o proveedor"/>
     <input type="number" data-c="entrada" data-id="${id}" min="0" placeholder="0" oninput="recalc(${id})"/>
@@ -919,7 +916,6 @@ function goToPrint(){
       <td class="n">${id?i+1:''}</td>
       <td>${g('hora')}</td>
       <td>${g('entrego')}</td>
-      <td>${g('enviadoPor')}</td>
       <td>${g('recibio')}</td>
       <td>${g('destino')}</td>
       <td class="r">${e||''}</td>
