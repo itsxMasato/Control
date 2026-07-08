@@ -149,8 +149,9 @@ body{background:var(--bg);color:#1a1a2e;min-height:100vh}
 .login-head h1{font-size:1.05rem;font-weight:700}
 .login-head p{font-size:.7rem;color:#cdd6ea;text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
 .login-body{padding:1.75rem}
-.login-err{background:#fdf0ee;color:var(--red);border:1px solid #f3c9c2;border-radius:8px;
-  padding:8px 12px;font-size:.8rem;margin-bottom:1rem;display:none}
+.password-wrap{position:relative}
+.password-wrap input{width:100%;padding-right:44px}
+.password-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:transparent;cursor:pointer;font-size:1rem;color:var(--muted)}
 .login-hint{font-size:.72rem;color:var(--muted);margin-top:1rem;text-align:center;line-height:1.5}
 .fb-status{font-size:.68rem;text-align:center;margin-top:.6rem;color:var(--muted)}
 .fb-status.err{color:var(--red);font-weight:600}
@@ -215,7 +216,9 @@ body{background:var(--bg);color:#1a1a2e;min-height:100vh}
 
 .save-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;
   padding:12px 22px;border-radius:10px;font-size:.85rem;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.2);
-  display:none;z-index:50}
+  display:none;z-index:50;max-width:min(90vw,420px);text-align:center}
+.save-toast.error{background:#b42318}
+.save-toast.success{background:#1a6e2e}
 
 #view-landing,#view-exec,#view-exec-detail{display:none}
 #view-form{display:none}

@@ -16,15 +16,16 @@
       <p>Portal interno de formularios</p>
     </div>
     <div class="login-body">
-      <div class="login-err" id="login-err"></div>
-
       <div class="field">
         <label>Correo</label>
         <input type="email" id="li-email" placeholder="tucorreo@gcm.hn" autocomplete="username"/>
       </div>
       <div class="field">
         <label>Contraseña</label>
-        <input type="password" id="li-pass" placeholder="••••••••" autocomplete="current-password"/>
+        <div class="password-wrap">
+          <input type="password" id="li-pass" placeholder="••••••••" autocomplete="current-password"/>
+          <button type="button" class="password-toggle" id="btn-toggle-pass" onclick="togglePasswordVisibility()" aria-label="Mostrar u ocultar contraseña">👁</button>
+        </div>
       </div>
 
       <button class="btn btn-navy" style="width:100%;justify-content:center;padding:11px" onclick="doLogin()" id="btn-login">
@@ -462,9 +463,17 @@ document.querySelectorAll('.gcm-logo-img').forEach(img=>{ img.src = GCM_LOGO_B64
 
 /* ================= LOGIN ================= */
 function showLoginError(msg){
-  const e = document.getElementById('login-err');
-  e.textContent = msg;
-  e.style.display='block';
+  showToast(msg, 'error');
+}
+
+function togglePasswordVisibility(){
+  const input = document.getElementById('li-pass');
+  const btn = document.getElementById('btn-toggle-pass');
+  if(!input || !btn) return;
+  const isHidden = input.type === 'password';
+  input.type = isHidden ? 'text' : 'password';
+  btn.textContent = isHidden ? '🙈' : '👁';
+  btn.setAttribute('aria-label', isHidden ? 'Ocultar contraseña' : 'Mostrar contraseña');
 }
 
 function inferRoleFromEmail(email){
@@ -560,7 +569,7 @@ function openInventario(){
 }
 
 /* ================= Toast ================= */
-function showToast(msg){
+function showToast(msg, type='info'){
   let t = document.getElementById('save-toast');
   if(!t){
     t = document.createElement('div');
@@ -568,8 +577,10 @@ function showToast(msg){
     document.body.appendChild(t);
   }
   t.textContent = msg;
+  t.className = `save-toast ${type}`;
   t.style.display='block';
-  setTimeout(()=>{ t.style.display='none'; }, 2600);
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(()=>{ t.style.display='none'; }, 3200);
 }
 
 /* ================= Envío del formulario a Firestore ================= */
