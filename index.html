@@ -590,18 +590,21 @@ function showToast(msg, type='info'){
 async function generateNextFolio(){
   if(!fbReady || !db) return 'GCM-001';
   try{
-    const snap = await db.collection('envios').get();
-    let maxNum = 0;
-    snap.forEach(doc=>{
-      const data = doc.data() || {};
-      const folio = data?.data?.folio || data?.folio || '';
-      const match = String(folio).trim().match(/^GCM-(\d{3})$/i);
-      if(match){
-        const num = parseInt(match[1], 10);
-        if(num > maxNum) maxNum = num;
+    const counterRef = db.collection('counters').doc('folio');
+    const next = await db.runTransaction(async tx => {
+      const doc = await tx.get(counterRef);
+      if(doc.exists){
+        const current = parseInt(doc.data()?.next || 0, 10) || 0;
+        const nextVal = current + 1;
+        tx.update(counterRef, { next: nextVal });
+        return nextVal;
+      }else{
+        const start = 1;
+        tx.set(counterRef, { next: start });
+        return start;
       }
     });
-    return `GCM-${String(maxNum + 1).padStart(3, '0')}`;
+    return `GCM-${String(next).padStart(3, '0')}`;
   }catch(err){
     console.error('No se pudo generar el folio:', err);
     return 'GCM-001';
